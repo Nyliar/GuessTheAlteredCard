@@ -1,0 +1,11 @@
+{
+  "sets": [
+    { "code": "CORE", "enabled": true },
+    { "code": "ALIZE", "enabled": true },
+    { "code": "BISE", "enabled": true },
+    { "code": "CYCLONE", "enabled": true },
+    { "code": "DUSTER", "enabled": true },
+    { "code": "EOLE", "enabled": true },
+    { "code": "FUGUE", "enabled": false }
+  ]
+}

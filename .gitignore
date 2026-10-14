@@ -1,0 +1,12 @@
+node_modules
+.env
+.env.*
+dist
+_tool
+_verify
+*.webp
+!public/foil.webp
+!public/banner.webp
+preview-*.png
+crop-*.png
+_tmp_api_params.mjs
