@@ -5,7 +5,7 @@ import { copy } from "./copy";
 import { applyResult, cardForDay, dayKey, formatRemaining, msUntilNextDay, type DailyRecord } from "./daily";
 import { isCorrectGuess } from "./guess";
 import { summarize } from "./history";
-import { DAILY_LIMIT } from "./mode";
+import { DAILY_LIMIT, REUNION_LOGIN } from "./mode";
 import { factionLabel, setLabel, typeLabel } from "./labels";
 import { namesFor } from "./names";
 import { publicUrl } from "./publicUrl";
@@ -210,12 +210,14 @@ export function App() {
               <span aria-hidden="true"> / </span>
               <span className={lang === "en" ? undefined : "translucent"}>🇬🇧</span>
             </button>
-            <Account
-              lang={lang}
-              user={user}
-              onUser={rememberUser}
-              onOpenStats={() => setShowStats(true)}
-            />
+            {REUNION_LOGIN && (
+              <Account
+                lang={lang}
+                user={user}
+                onUser={rememberUser}
+                onOpenStats={() => setShowStats(true)}
+              />
+            )}
           </div>
         </div>
       </header>
