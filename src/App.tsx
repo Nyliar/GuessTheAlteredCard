@@ -8,6 +8,7 @@ import { summarize } from "./history";
 import { DAILY_LIMIT } from "./mode";
 import { factionLabel, setLabel, typeLabel } from "./labels";
 import { namesFor } from "./names";
+import { publicUrl } from "./publicUrl";
 import { disconnect, loadUser, type ReunionUser } from "./reunion";
 import { earnedPoints } from "./score";
 import { shareText } from "./share";
@@ -234,7 +235,7 @@ export function App() {
       />
     ) : (
     <main className="app">
-      <img className="banner" src="/banner.webp" alt="" />
+      <img className="banner" src={publicUrl("banner.webp")} alt="" />
       <p className="ledeMain">
         {DAILY_LIMIT ? text.ledeDaily : ""}
         {text.lede}

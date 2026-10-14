@@ -1,4 +1,5 @@
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { publicUrl } from "./publicUrl";
 
 interface HoloCardProps {
   src: string;
@@ -66,7 +67,7 @@ export function HoloCard({ src, foil }: HoloCardProps) {
         onPointerMove={onMove}
         onPointerLeave={onLeave}
       >
-        {foil && <img ref={foilRef} className="card-foil" src="/foil.webp" alt="" draggable={false} />}
+        {foil && <img ref={foilRef} className="card-foil" src={publicUrl("foil.webp")} alt="" draggable={false} />}
         <img className="card-face" src={src} alt="" draggable={false} />
         <div ref={shineRef} className="card-shine" />
       </div>

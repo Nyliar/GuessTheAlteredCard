@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { copy } from "./copy";
+import { publicUrl } from "./publicUrl";
 import { loadUser, loginError, startLogin, type ReunionUser } from "./reunion";
 import type { Lang } from "./types";
 
@@ -17,7 +18,7 @@ export function Account({ lang, user, onUser, onOpenStats }: {
     const problem = loginError(window.location.search);
     if (problem) {
       setError(problem);
-      window.history.replaceState({}, "", "/");
+      window.history.replaceState({}, "", import.meta.env.BASE_URL);
     }
     onUser(loadUser());
     setReady(true);
@@ -40,7 +41,7 @@ export function Account({ lang, user, onUser, onOpenStats }: {
           onOpenStats();
         }}
       >
-        <img src="/reunion.png" alt="" />
+        <img src={publicUrl("reunion.png")} alt="" />
       </button>
       {error && <p className="account-error">{error}</p>}
     </div>

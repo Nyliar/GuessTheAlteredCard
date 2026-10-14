@@ -1,4 +1,5 @@
 import { cardImageUrl } from "./draw";
+import { publicUrl } from "./publicUrl";
 import { HoloCard } from "./HoloCard";
 import { copy } from "./copy";
 import "./icons.css";
@@ -33,7 +34,7 @@ export function StatsPage({ lang, pseudo, summary, cards, onBack, onDisconnect }
 
   return (
     <main className="app stats-page">
-      <img className="banner stats-banner" src="/stats-banner.webp" alt="" />
+      <img className="banner stats-banner" src={publicUrl("stats-banner.webp")} alt="" />
       <h2 className="stats-welcome">
         <span className="title1">{text.welcome} </span>
         <span className="title2">{pseudo}</span>
