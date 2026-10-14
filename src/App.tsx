@@ -2,23 +2,24 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import catalog from "./data/characters.json";
 import { Account } from "./Account";
 import { copy } from "./copy";
-import { applyResult, cardForDay, dayKey, formatRemaining, msUntilNextDay, type DailyRecord } from "./daily";
+import { applyResult, cardForDay, dayKey, formatRemaining, msUntilNextDay, oneOfEachCharacter, type DailyRecord } from "./daily";
 import { isCorrectGuess } from "./guess";
 import { summarize } from "./history";
-import { DAILY_LIMIT, REUNION_LOGIN } from "./mode";
+import { DAILY_LIMIT } from "./mode";
 import { factionLabel, setLabel, typeLabel } from "./labels";
 import { namesFor } from "./names";
 import { publicUrl } from "./publicUrl";
 import { disconnect, loadUser, type ReunionUser } from "./reunion";
-import { earnedPoints } from "./score";
+import { earnedPoints, playedStep } from "./score";
 import { shareText } from "./share";
 import { cardsInPool } from "./sets";
 import { Stage } from "./Stage";
 import { StatsPage } from "./StatsPage";
-import { loadDaily, loadHistory, loadStats, recordGame, recordShare, saveDaily, saveStats } from "./storage";
+import { loadDaily, loadHistory, loadSkipFirst, loadStats, recordGame, recordShare, saveDaily, saveSkipFirst, saveStats } from "./storage";
 import type { Character, HintStep, Lang } from "./types";
 
 const cards = cardsInPool(catalog.characters as Character[]);
+const dailyCards = oneOfEachCharacter(cards);
 const LANG_KEY = "wtc-lang";
 
 interface Session {
@@ -27,6 +28,7 @@ interface Session {
   phase: "playing" | "correct" | "miss";
   awarded: number | null;
   hints: number;
+  skippedFirst: boolean;
 }
 
 export function App() {
@@ -36,6 +38,7 @@ export function App() {
   const [today, setToday] = useState(dayKey);
   const [session, setSession] = useState<Session>(() => readToday(dayKey()));
   const [stats, setStats] = useState(loadStats);
+  const [skipFirst, setSkipFirst] = useState(loadSkipFirst);
   const [guess, setGuess] = useState("");
   const [note, setNote] = useState("");
   const [artReady, setArtReady] = useState(false);
@@ -57,7 +60,7 @@ export function App() {
       const next = dayKey();
       setToday((current) => (current === next ? current : next));
       if (DAILY_LIMIT) setRemaining(formatRemaining(msUntilNextDay()));
-    }, 30000);
+    }, 1000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -74,6 +77,16 @@ export function App() {
   }, [session.card.reference, session.phase]);
 
   useEffect(() => {
+    // Wait until the puzzle is on screen, so turning the setting back off from stats
+    // still leaves a step-0 game on the silhouette.
+    if (!skipFirst || showStats) return;
+    setSession((current) => {
+      if (current.phase !== "playing" || current.step !== 0) return current;
+      return { ...current, step: 1, skippedFirst: true };
+    });
+  }, [skipFirst, showStats]);
+
+  useEffect(() => {
     const record: DailyRecord = {
       date: today,
       reference: session.card.reference,
@@ -81,19 +94,27 @@ export function App() {
       phase: session.phase,
       awarded: session.awarded,
       hints: session.hints,
+      skippedFirst: session.skippedFirst,
     };
     saveDaily(record);
   }, [today, session]);
 
-  function finish(phase: "correct" | "miss", points: number) {
+  function finish(phase: "correct" | "miss", step: HintStep) {
+    const points = phase === "correct" ? earnedPoints(step, session.hints) : 0;
     const solved = phase === "correct";
     recordGame({
       reference: session.card.reference,
       points,
       solved,
-      foil: solved && session.step <= 1,
+      foil: solved && step <= 1,
     });
-    setSession((current) => ({ ...current, phase, awarded: points }));
+    setSession((current) => ({
+      ...current,
+      step,
+      skippedFirst: current.skippedFirst || step > current.step,
+      phase,
+      awarded: points,
+    }));
     setNote("");
     setStats((prev) => {
       const updated = applyResult(prev, points, today, DAILY_LIMIT, phase === "correct");
@@ -105,25 +126,35 @@ export function App() {
   function submit(event: FormEvent) {
     event.preventDefault();
     if (session.phase !== "playing" || !artReady) return;
+    const step = playedStep(session.step, skipFirst || session.skippedFirst);
     const typed = guess.trim();
     if (!typed) return;
     const answers = [session.card.name.en, session.card.name.fr];
     if (!isCorrectGuess(typed, answers, false)) {
-      if (session.step < 3) {
-        setSession((current) => ({ ...current, step: (current.step + 1) as HintStep }));
+      if (step < 3) {
+        setSession((current) => ({
+          ...current,
+          step: (step + 1) as HintStep,
+          skippedFirst: current.skippedFirst || step > current.step,
+        }));
         setGuess("");
         setNote(text.miss);
         return;
       }
-      finish("miss", 0);
+      finish("miss", step);
       return;
     }
-    finish("correct", earnedPoints(session.step, session.hints));
+    finish("correct", step);
   }
 
   function revealMore() {
-    if (session.phase !== "playing" || !artReady || session.step >= 3) return;
-    setSession((current) => ({ ...current, step: (current.step + 1) as HintStep }));
+    const step = playedStep(session.step, skipFirst || session.skippedFirst);
+    if (session.phase !== "playing" || !artReady || step >= 3) return;
+    setSession((current) => ({
+      ...current,
+      step: (step + 1) as HintStep,
+      skippedFirst: current.skippedFirst || step > current.step,
+    }));
     setGuess("");
     setNote("");
     inputRef.current?.focus({ preventScroll: true });
@@ -131,7 +162,7 @@ export function App() {
 
   function giveUp() {
     if (session.phase !== "playing" || !artReady) return;
-    finish("miss", 0);
+    finish("miss", playedStep(session.step, skipFirst || session.skippedFirst));
   }
 
   function takeHint() {
@@ -140,12 +171,14 @@ export function App() {
   }
 
   async function shareResult() {
+    const step = playedStep(session.step, session.skippedFirst);
     const message = shareText({
-      step: session.step,
+      step,
       solved: session.phase === "correct",
-      foil: session.phase === "correct" && session.step <= 1,
+      foil: session.phase === "correct" && step <= 1,
       date: today,
       lang,
+      skippedFirst: session.skippedFirst,
     });
     let shared = false;
     try {
@@ -171,7 +204,14 @@ export function App() {
   function playAnother() {
     const pool = cards.filter((card) => card.reference !== session.card.reference);
     const card = pool[Math.floor(Math.random() * pool.length)] ?? session.card;
-    setSession({ card, step: 0, phase: "playing", awarded: null, hints: 0 });
+    setSession({
+      card,
+      step: skipFirst ? 1 : 0,
+      phase: "playing",
+      awarded: null,
+      hints: 0,
+      skippedFirst: skipFirst,
+    });
     setGuess("");
     setNote("");
     setArtReady(false);
@@ -179,10 +219,14 @@ export function App() {
   }
 
   const revealed = session.phase !== "playing";
+  const shownStep = playedStep(
+    session.step,
+    session.phase === "playing" ? skipFirst || session.skippedFirst : session.skippedFirst,
+  );
   const primary = lang === "fr" ? session.card.name.fr : session.card.name.en;
   const secondary = lang === "fr" ? session.card.name.en : session.card.name.fr;
-  const stake = session.phase === "playing" ? earnedPoints(session.step, session.hints) : session.awarded;
-  const chances = Math.max(0, 4 - session.step - (session.phase === "playing" ? 0 : 1));
+  const stake = session.phase === "playing" ? earnedPoints(shownStep, session.hints) : session.awarded;
+  const chances = Math.max(0, 4 - shownStep - (session.phase === "playing" ? 0 : 1));
   const details = [session.card.type, session.card.factionName, session.card.setName].filter(Boolean).join(" · ");
   const hintNames = [text.hintType, text.hintFaction, text.hintSet];
   const revealedHints = [
@@ -210,30 +254,33 @@ export function App() {
               <span aria-hidden="true"> / </span>
               <span className={lang === "en" ? undefined : "translucent"}>🇬🇧</span>
             </button>
-            {REUNION_LOGIN && (
-              <Account
-                lang={lang}
-                user={user}
-                onUser={rememberUser}
-                onOpenStats={() => setShowStats(true)}
-              />
-            )}
+            <Account
+              lang={lang}
+              user={user}
+              onUser={rememberUser}
+              onOpenStats={() => setShowStats(true)}
+            />
           </div>
         </div>
       </header>
 
-    {showStats && user ? (
+    {showStats ? (
       <StatsPage
         lang={lang}
-        pseudo={user.pseudo}
+        pseudo={user?.pseudo ?? ""}
         summary={summarize(loadHistory())}
         cards={cards}
+        skipFirst={skipFirst}
+        onSkipFirst={(next) => {
+          saveSkipFirst(next);
+          setSkipFirst(next);
+        }}
         onBack={() => setShowStats(false)}
-        onDisconnect={() => {
+        onDisconnect={user ? () => {
           disconnect();
           setUser(null);
           setShowStats(false);
-        }}
+        } : undefined}
       />
     ) : (
     <main className="app">
@@ -248,6 +295,12 @@ export function App() {
       <p className="ledeSub2">
         {text.ledeHint}
       </p>
+      {DAILY_LIMIT && revealed && (
+        <p className="next-puzzle">
+          <span>{text.nextIn}</span>
+          <strong>{remaining}</strong>
+        </p>
+      )}
 
       <section className="stats" aria-label={text.score}>
         <div><span>{text.score}</span><strong>{stake == null ? "–" : stake}</strong></div>
@@ -266,9 +319,9 @@ export function App() {
         <Stage
           key={`${session.card.reference}-${loadAttempt}`}
           card={session.card}
-          step={session.step}
+          step={shownStep}
           revealed={revealed}
-          foil={session.phase === "correct" && session.step <= 1}
+          foil={session.phase === "correct" && shownStep <= 1}
           onReady={() => setArtReady(true)}
           onError={() => setBroken(true)}
         />
@@ -311,7 +364,7 @@ export function App() {
             {suggestions.map((name) => <option key={name} value={name} />)}
           </datalist>
           <button className="altered-button" type="submit" disabled={!artReady}>{text.guess}</button>
-          {session.step < 3 && (
+          {shownStep < 3 && (
             <button className="altered-button" type="button" onClick={revealMore} disabled={!artReady}>
               {text.nextStep}
             </button>
@@ -328,7 +381,6 @@ export function App() {
             {details}
             {session.awarded != null && session.awarded > 0 ? ` · +${session.awarded}` : ` · 0 ${text.points}`}
           </p>
-          {DAILY_LIMIT && <p>{text.nextIn} {remaining}.</p>}
           <div className="reveal-actions">
             {!DAILY_LIMIT && (
               <button type="button" onClick={playAnother}>{text.next}</button>
@@ -366,10 +418,13 @@ function initialLang(): Lang {
 }
 
 function readToday(day: string): Session {
+  const card = cardForDay(dailyCards, day);
   const saved = loadDaily();
-  const resume = saved?.date === day ? cards.find((card) => card.reference === saved.reference) : undefined;
-  if (saved && resume && saved.date === day) {
-    return { card: resume, step: saved.step, phase: saved.phase, awarded: saved.awarded, hints: saved.hints };
+  const skip = loadSkipFirst();
+  if (saved?.date === day && saved.reference === card.reference) {
+    const skippedFirst = saved.skippedFirst || (skip && saved.phase === "playing" && saved.step === 0);
+    const step = saved.phase === "playing" ? playedStep(saved.step, skippedFirst) : saved.step;
+    return { card, step, phase: saved.phase, awarded: saved.awarded, hints: saved.hints, skippedFirst };
   }
-  return { card: cardForDay(cards, day), step: 0, phase: "playing", awarded: null, hints: 0 };
+  return { card, step: skip ? 1 : 0, phase: "playing", awarded: null, hints: 0, skippedFirst: skip };
 }

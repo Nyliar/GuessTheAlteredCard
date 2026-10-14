@@ -31,6 +31,19 @@ describe("shareText", () => {
     );
   });
 
+  it("marks a skipped silhouette as missed even when the recorded step is still the first", () => {
+    assert.equal(
+      shareText({ step: 0, solved: true, foil: true, date: "2026-10-14", lang: "en", skippedFirst: true }),
+      [
+        "Guess the Altered Card - Oct 14, 2026 ✨",
+        ` 🔳  ${gap}❌`,
+        `░▒▓${gap}✅`,
+        " 🎨  ",
+        " 🖼️  ",
+      ].join("\n"),
+    );
+  });
+
   it("marks the stages that were reached and leaves the rest blank", () => {
     assert.equal(
       shareText({ step: 2, solved: false, foil: false, date: "2026-10-14", lang: "en" }).split("\n").slice(1).join("\n"),

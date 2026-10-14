@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { copy } from "./copy";
+import { REUNION_LOGIN } from "./mode";
 import { publicUrl } from "./publicUrl";
 import { loadUser, loginError, startLogin, type ReunionUser } from "./reunion";
 import type { Lang } from "./types";
@@ -29,11 +30,11 @@ export function Account({ lang, user, onUser, onOpenStats }: {
       <button
         type="button"
         className="header-button account-button"
-        aria-label={user ? user.pseudo : text.connect}
+        aria-label={user ? user.pseudo : REUNION_LOGIN ? text.connect : text.statsTitle}
         disabled={!ready}
         onClick={() => {
           if (!ready) return;
-          if (!user) {
+          if (REUNION_LOGIN && !user) {
             setError("");
             startLogin();
             return;

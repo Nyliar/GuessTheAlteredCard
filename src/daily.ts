@@ -7,6 +7,8 @@ export interface DailyRecord {
   phase: "playing" | "correct" | "miss";
   awarded: number | null;
   hints: number;
+  /** The silhouette was skipped, so a share marks that step as missed. */
+  skippedFirst: boolean;
 }
 
 export function dayKey(date = new Date()): string {
@@ -21,9 +23,31 @@ export function previousDay(day: string): string {
   return dayKey(new Date(year, month - 1, date - 1));
 }
 
+const PRINT_RANK: Record<string, number> = { C: 0, E: 1, R1: 2, R2: 3 };
+
+/** One puzzle per character. Alternate printings share a name, so the common art represents them. */
+export function oneOfEachCharacter<T extends { reference: string }>(cards: readonly T[]): T[] {
+  const chosen = new Map<string, T>();
+  for (const card of cards) {
+    const id = characterId(card.reference);
+    const current = chosen.get(id);
+    if (!current || printRank(card.reference) < printRank(current.reference)) chosen.set(id, card);
+  }
+  return [...chosen.values()];
+}
+
 export function cardForDay(cards: readonly Character[], day: string): Character {
   if (cards.length === 0) throw new Error("No cards");
   return cards[hash(day) % cards.length];
+}
+
+function characterId(reference: string): string {
+  return reference.replace(/_(C|E|R1|R2)$/, "");
+}
+
+function printRank(reference: string): number {
+  const suffix = reference.split("_").pop() ?? "";
+  return PRINT_RANK[suffix] ?? 4;
 }
 
 export function applyResult(stats: Stats, points: number, today: string, oncePerDay = true, correct = false): Stats {
@@ -43,12 +67,11 @@ export function msUntilNextDay(now = new Date()): number {
 }
 
 export function formatRemaining(ms: number): string {
-  const minutes = Math.max(1, Math.ceil(ms / 60000));
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (hours <= 0) return `${rest}m`;
-  if (rest === 0) return `${hours}h`;
-  return `${hours}h ${rest}m`;
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return `${hours}H ${String(minutes).padStart(2, "0")}M ${String(seconds).padStart(2, "0")}S`;
 }
 
 function hash(value: string): number {
@@ -59,3 +82,4 @@ function hash(value: string): number {
   }
   return h >>> 0;
 }
+

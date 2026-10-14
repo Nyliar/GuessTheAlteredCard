@@ -189,6 +189,28 @@ a { color: #aa8c2c; }
   font-size: clamp(0.68rem, 2.4vw, 0.9rem);
 }
 
+.next-puzzle {
+  margin: 1.15em 0 0;
+  text-align: center;
+}
+
+.next-puzzle span {
+  display: block;
+  color: #786f56;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.next-puzzle strong {
+  display: block;
+  margin-top: 0.1em;
+  color: #2c2926;
+  font-size: clamp(1.7rem, 6vw, 2.15rem);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1.1;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -472,6 +494,79 @@ a { color: #aa8c2c; }
   margin-top: 2px;
   color: #786f56;
   font-size: 0.72rem;
+}
+
+.setting {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85em;
+  margin-top: 0.9em;
+  cursor: pointer;
+}
+
+.setting input {
+  position: absolute;
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  opacity: 0;
+}
+
+.setting-switch {
+  flex: none;
+  width: 44px;
+  height: 26px;
+  margin-top: 1px;
+  border: 1px solid #d7d6d1;
+  border-radius: 999px;
+  background: #e4e5dc;
+  position: relative;
+}
+
+.setting-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 64, 0.18);
+  transition: transform 160ms ease;
+}
+
+.setting input:checked + .setting-switch {
+  background: #aa8c2c;
+  border-color: #aa8c2c;
+}
+
+.setting input:checked + .setting-switch::after {
+  transform: translateX(18px);
+}
+
+.setting input:focus-visible + .setting-switch {
+  outline: 2px solid #aa8c2c;
+  outline-offset: 2px;
+}
+
+.setting-copy {
+  min-width: 0;
+}
+
+.setting-copy strong {
+  display: block;
+  color: #49423a;
+  font-size: 0.95rem;
+}
+
+.setting-copy small {
+  display: block;
+  margin-top: 2px;
+  color: #786f56;
+  font-size: 0.8rem;
+  line-height: 1.4;
 }
 
 .collection-empty {

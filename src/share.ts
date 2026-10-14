@@ -1,4 +1,5 @@
 import { copy } from "./copy";
+import { playedStep } from "./score";
 import type { HintStep, Lang } from "./types";
 
 const STAGES = [
@@ -27,16 +28,19 @@ export interface ShareResult {
   /** Quiz day, as YYYY-MM-DD. */
   date: string;
   lang: Lang;
+  /** The silhouette was skipped, so that row is always a miss. */
+  skippedFirst?: boolean;
 }
 
 /** Spoiler-free result: one row per stage. Later stages stay unmarked. */
 export function shareText(result: ShareResult): string {
   const title = copy[result.lang].shareTitle;
   const foil = result.foil ? " ✨" : "";
+  const step = playedStep(result.step, Boolean(result.skippedFirst));
   const rows = STAGES.map(({ icon, width }, index) => {
     const stage = center(icon, width, LEFT_WIDTH);
-    if (index > result.step) return stage;
-    const mark = result.solved && index === result.step ? "✅" : "❌";
+    if (index > step) return stage;
+    const mark = result.solved && index === step ? "✅" : "❌";
     return `${stage}${COLUMN_GAP}${center(mark, MARK_WIDTH, MARK_WIDTH)}`;
   });
   return [`${title} - ${quizDate(result.date, result.lang)}${foil}`, ...rows].join("\n");

@@ -1,10 +1,22 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { applyResult, cardForDay, dayKey, formatRemaining, previousDay } from "./daily";
+import { applyResult, cardForDay, dayKey, formatRemaining, oneOfEachCharacter, previousDay } from "./daily";
 import type { Character, Stats } from "./types";
 
 const cards = ["a", "b", "c", "d"].map((reference) => ({ reference }) as Character);
 const empty: Stats = { score: 0, solved: 0, streak: 0, lastPlayed: "" };
+
+describe("oneOfEachCharacter", () => {
+  it("keeps one art per character and prefers the common printing", () => {
+    const picked = oneOfEachCharacter([
+      { reference: "ALT_CORE_B_MU_18_R1" },
+      { reference: "ALT_CORE_B_MU_18_C" },
+      { reference: "ALT_CORE_B_MU_18_R2" },
+      { reference: "ALT_CORE_B_BR_03_R1" },
+    ]);
+    assert.deepEqual(picked.map((card) => card.reference), ["ALT_CORE_B_MU_18_C", "ALT_CORE_B_BR_03_R1"]);
+  });
+});
 
 describe("cardForDay", () => {
   it("picks the same card for the same day", () => {
@@ -46,8 +58,10 @@ describe("dates", () => {
   });
 
   it("formats the wait until midnight", () => {
-    assert.equal(formatRemaining(60 * 60000), "1h");
-    assert.equal(formatRemaining(90 * 60000), "1h 30m");
-    assert.equal(formatRemaining(20 * 60000), "20m");
+    assert.equal(formatRemaining((9 * 3600 + 32 * 60 + 11) * 1000), "9H 32M 11S");
+    assert.equal(formatRemaining(60 * 60000), "1H 00M 00S");
+    assert.equal(formatRemaining(90 * 60000), "1H 30M 00S");
+    assert.equal(formatRemaining(20 * 60000), "0H 20M 00S");
+    assert.equal(formatRemaining(0), "0H 00M 00S");
   });
 });

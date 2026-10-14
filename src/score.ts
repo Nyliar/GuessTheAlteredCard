@@ -10,3 +10,8 @@ export function pointsFor(step: HintStep): number {
 export function earnedPoints(step: HintStep, hints: number): number {
   return Math.max(0, pointsFor(step) - hints);
 }
+
+/** Skipping the silhouette opens the puzzle on the grayscale step, so that is the best score. */
+export function playedStep(step: HintStep, skipFirst: boolean): HintStep {
+  return skipFirst && step === 0 ? 1 : step;
+}

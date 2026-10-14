@@ -11,11 +11,13 @@ interface StatsPageProps {
   pseudo: string;
   summary: PlayerSummary;
   cards: readonly Character[];
+  skipFirst: boolean;
+  onSkipFirst: (skip: boolean) => void;
   onBack: () => void;
-  onDisconnect: () => void;
+  onDisconnect?: () => void;
 }
 
-export function StatsPage({ lang, pseudo, summary, cards, onBack, onDisconnect }: StatsPageProps) {
+export function StatsPage({ lang, pseudo, summary, cards, skipFirst, onSkipFirst, onBack, onDisconnect }: StatsPageProps) {
   const text = copy[lang];
   const average = summary.average == null
     ? "–"
@@ -35,10 +37,12 @@ export function StatsPage({ lang, pseudo, summary, cards, onBack, onDisconnect }
   return (
     <main className="app stats-page">
       <img className="banner stats-banner" src={publicUrl("stats-banner.webp")} alt="" />
-      <h2 className="stats-welcome">
-        <span className="title1">{text.welcome} </span>
-        <span className="title2">{pseudo}</span>
-      </h2>
+      {pseudo && (
+        <h2 className="stats-welcome">
+          <span className="title1">{text.welcome}</span>
+          { /* <span className="title2">{pseudo}</span> */ }
+        </h2>
+      )}
       <section className="section-card">
         <h2>{text.statsTitle}</h2>
         <p>
@@ -55,6 +59,22 @@ export function StatsPage({ lang, pseudo, summary, cards, onBack, onDisconnect }
             <small>{hint}</small>
           </div>
         ))}
+      </section>
+      <section className="section-card">
+        <h2>{text.settingsTitle}</h2>
+        <label className="setting">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={skipFirst}
+            onChange={(event) => onSkipFirst(event.target.checked)}
+          />
+          <span className="setting-switch" aria-hidden="true" />
+          <span className="setting-copy">
+            <strong>{text.skipFirst}</strong>
+            <small>{text.skipFirstHint}</small>
+          </span>
+        </label>
       </section>
       <section className="section-card">
         <h2>{text.collection}</h2>
@@ -78,7 +98,9 @@ export function StatsPage({ lang, pseudo, summary, cards, onBack, onDisconnect }
       )}
       <div className="stats-actions">
         <button type="button" className="altered-button" onClick={onBack}>{text.backToGame}</button>
-        <button type="button" className="altered-button" onClick={onDisconnect}>{text.disconnect}</button>
+        {onDisconnect && (
+          <button type="button" className="altered-button" onClick={onDisconnect}>{text.disconnect}</button>
+        )}
       </div>
     </main>
   );
