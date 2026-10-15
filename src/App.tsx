@@ -9,7 +9,7 @@ import { DAILY_LIMIT } from "./mode";
 import { factionLabel, setLabel, typeLabel } from "./labels";
 import { namesFor } from "./names";
 import { publicUrl } from "./publicUrl";
-import { disconnect, loadUser, type ReunionUser } from "./reunion";
+import { disconnect, type ReunionUser } from "./reunion";
 import { earnedPoints, playedStep } from "./score";
 import { shareText } from "./share";
 import { cardsInPool } from "./sets";
@@ -41,6 +41,7 @@ export function App() {
   const [skipFirst, setSkipFirst] = useState(loadSkipFirst);
   const [guess, setGuess] = useState("");
   const [note, setNote] = useState("");
+  const [confirmGiveUp, setConfirmGiveUp] = useState(false);
   const [artReady, setArtReady] = useState(false);
   const [broken, setBroken] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -70,6 +71,7 @@ export function App() {
     setNote("");
     setArtReady(false);
     setBroken(false);
+    setConfirmGiveUp(false);
   }, [today]);
 
   useEffect(() => {
@@ -162,6 +164,7 @@ export function App() {
 
   function giveUp() {
     if (session.phase !== "playing" || !artReady) return;
+    setConfirmGiveUp(false);
     finish("miss", playedStep(session.step, skipFirst || session.skippedFirst));
   }
 
@@ -198,7 +201,7 @@ export function App() {
         return;
       }
     }
-    if (shared && loadUser()) recordShare();
+    if (shared) recordShare();
   }
 
   function playAnother() {
@@ -369,7 +372,7 @@ export function App() {
               {text.nextStep}
             </button>
           )}
-          <button className="altered-button" type="button" onClick={giveUp} disabled={!artReady}>
+          <button className="altered-button" type="button" onClick={() => setConfirmGiveUp(true)} disabled={!artReady}>
             {text.giveUp}
           </button>
         </form>
@@ -392,6 +395,16 @@ export function App() {
 
       <p className="feedback" role="status">{note}</p>
 
+      {confirmGiveUp && (
+        <GiveUpConfirm
+          message={text.giveUpConfirm}
+          confirmLabel={text.giveUpYes}
+          cancelLabel={text.giveUpNo}
+          onCancel={() => setConfirmGiveUp(false)}
+          onConfirm={giveUp}
+        />
+      )}
+
     </main>
     )}
       <footer className="site-footer">
@@ -404,6 +417,60 @@ export function App() {
         </div>
       </footer>
     </>
+  );
+}
+
+function GiveUpConfirm({
+  message,
+  confirmLabel,
+  cancelLabel,
+  onCancel,
+  onConfirm,
+}: {
+  message: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    dialog.showModal();
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, []);
+
+  return (
+    <dialog
+      ref={ref}
+      className="confirm"
+      aria-labelledby="give-up-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        onCancel();
+      }}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const box = event.currentTarget.getBoundingClientRect();
+        const { clientX, clientY } = event;
+        const outside = clientX < box.left || clientX > box.right || clientY < box.top || clientY > box.bottom;
+        if (outside) onCancel();
+      }}
+    >
+      <p id="give-up-title">{message}</p>
+      <div className="confirm-actions">
+        <button type="button" className="altered-button" onClick={onCancel} autoFocus>
+          {cancelLabel}
+        </button>
+        <button type="button" className="altered-button" onClick={onConfirm}>
+          {confirmLabel}
+        </button>
+      </div>
+    </dialog>
   );
 }
 
