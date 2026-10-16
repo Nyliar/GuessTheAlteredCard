@@ -7,7 +7,7 @@ export interface DailyRecord {
   phase: "playing" | "correct" | "miss";
   awarded: number | null;
   hints: number;
-  /** The silhouette was skipped, so a share marks that step as missed. */
+  /** The first crop was skipped, so a share marks that step as missed. */
   skippedFirst: boolean;
 }
 

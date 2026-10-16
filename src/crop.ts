@@ -5,6 +5,46 @@ export interface ArtCrop {
   height: number;
 }
 
+export const ART_GRID = 3;
+
+/** Columns and rows for each puzzle step: 12, 9, 6, then 4 cells. */
+export const STEP_GRIDS = [
+  [4, 3],
+  [3, 3],
+  [2, 3],
+  [2, 2],
+] as const;
+
+/** One cell of a grid split of the illustration. `index` is row-major. */
+export function cropArtCell(crop: ArtCrop, index: number, columns = ART_GRID, rows = ART_GRID): ArtCrop {
+  const col = ((index % columns) + columns) % columns;
+  const row = Math.floor(index / columns) % rows;
+  const left = crop.left + Math.round((crop.width * col) / columns);
+  const right = crop.left + Math.round((crop.width * (col + 1)) / columns);
+  const top = crop.top + Math.round((crop.height * row) / rows);
+  const bottom = crop.top + Math.round((crop.height * (row + 1)) / rows);
+  return { left, top, width: right - left, height: bottom - top };
+}
+
+/** The cell whose center is closest to the previous crop's center. */
+export function pickClosestArtCell(bounds: ArtCrop, columns: number, rows: number, previous: ArtCrop): ArtCrop {
+  const cx = previous.left + previous.width / 2;
+  const cy = previous.top + previous.height / 2;
+  let best = cropArtCell(bounds, 0, columns, rows);
+  let bestDist = Infinity;
+  for (let index = 0; index < columns * rows; index += 1) {
+    const cell = cropArtCell(bounds, index, columns, rows);
+    const dx = cell.left + cell.width / 2 - cx;
+    const dy = cell.top + cell.height / 2 - cy;
+    const dist = dx * dx + dy * dy;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = cell;
+    }
+  }
+  return best;
+}
+
 /**
  * Card art is full-bleed, with the name on a light banner and the rules on a light panel.
  * This finds those bands and returns the illustration between them, inset past the stat pips.

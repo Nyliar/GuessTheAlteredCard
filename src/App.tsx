@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import catalog from "./data/characters.json";
 import { Account } from "./Account";
 import { copy } from "./copy";
 import { applyResult, cardForDay, dayKey, formatRemaining, msUntilNextDay, oneOfEachCharacter, type DailyRecord } from "./daily";
+import { cardImageUrl } from "./draw";
 import { isCorrectGuess } from "./guess";
 import { summarize } from "./history";
 import { DAILY_LIMIT } from "./mode";
 import { factionLabel, setLabel, typeLabel } from "./labels";
-import { namesFor } from "./names";
+import { suggestNames, type NameSuggestion } from "./names";
 import { publicUrl } from "./publicUrl";
 import { disconnect, type ReunionUser } from "./reunion";
 import { earnedPoints, playedStep } from "./score";
@@ -34,12 +35,13 @@ interface Session {
 export function App() {
   const [lang, setLang] = useState<Lang>(initialLang);
   const text = copy[lang];
-  const suggestions = useMemo(() => namesFor(cards, lang), [lang]);
   const [today, setToday] = useState(dayKey);
   const [session, setSession] = useState<Session>(() => readToday(dayKey()));
   const [stats, setStats] = useState(loadStats);
   const [skipFirst, setSkipFirst] = useState(loadSkipFirst);
   const [guess, setGuess] = useState("");
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [picked, setPicked] = useState(0);
   const [note, setNote] = useState("");
   const [confirmGiveUp, setConfirmGiveUp] = useState(false);
   const [artReady, setArtReady] = useState(false);
@@ -49,6 +51,8 @@ export function App() {
   const [user, setUser] = useState<ReunionUser | null>(null);
   const [showStats, setShowStats] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const matches = useMemo(() => suggestNames(cards, lang, guess), [lang, guess]);
+  const showSuggestions = suggestOpen && guess.trim().length > 0;
   const rememberUser = useCallback((next: ReunionUser | null) => setUser(next), []);
 
   useEffect(() => {
@@ -80,7 +84,7 @@ export function App() {
 
   useEffect(() => {
     // Wait until the puzzle is on screen, so turning the setting back off from stats
-    // still leaves a step-0 game on the silhouette.
+    // still leaves a step-0 game on the first crop.
     if (!skipFirst || showStats) return;
     setSession((current) => {
       if (current.phase !== "playing" || current.step !== 0) return current;
@@ -125,11 +129,9 @@ export function App() {
     });
   }
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
+  function applyGuess(typed: string) {
     if (session.phase !== "playing" || !artReady) return;
     const step = playedStep(session.step, skipFirst || session.skippedFirst);
-    const typed = guess.trim();
     if (!typed) return;
     const answers = [session.card.name.en, session.card.name.fr];
     if (!isCorrectGuess(typed, answers, false)) {
@@ -140,6 +142,7 @@ export function App() {
           skippedFirst: current.skippedFirst || step > current.step,
         }));
         setGuess("");
+        setSuggestOpen(false);
         setNote(text.miss);
         return;
       }
@@ -147,6 +150,35 @@ export function App() {
       return;
     }
     finish("correct", step);
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const selected = showSuggestions ? matches[picked] : undefined;
+    applyGuess((selected?.name ?? guess).trim());
+    setSuggestOpen(false);
+  }
+
+  function pickSuggestion(card: NameSuggestion) {
+    setGuess(card.name);
+    setSuggestOpen(false);
+    applyGuess(card.name);
+  }
+
+  function onGuessKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      setSuggestOpen(false);
+      return;
+    }
+    if (!showSuggestions || matches.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setPicked((index) => (index + 1) % matches.length);
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setPicked((index) => (index - 1 + matches.length) % matches.length);
+    }
   }
 
   function revealMore() {
@@ -350,22 +382,55 @@ export function App() {
 
       {session.phase === "playing" ? (
         <form className={note ? "guess wrong" : "guess"} onSubmit={submit}>
-          <input
-            ref={inputRef}
-            value={guess}
-            list="character-names"
-            aria-label={text.nameLabel}
-            placeholder={text.placeholder}
-            autoCapitalize="words"
-            spellCheck={false}
-            onChange={(event) => {
-              setGuess(event.target.value);
-              setNote("");
-            }}
-          />
-          <datalist id="character-names">
-            {suggestions.map((name) => <option key={name} value={name} />)}
-          </datalist>
+          <div className="guess-field">
+            <input
+              ref={inputRef}
+              value={guess}
+              aria-label={text.nameLabel}
+              aria-autocomplete="list"
+              aria-expanded={showSuggestions}
+              aria-controls="character-suggestions"
+              aria-activedescendant={showSuggestions && matches[picked] ? `character-suggestion-${picked}` : undefined}
+              placeholder={text.placeholder}
+              autoComplete="off"
+              autoCapitalize="words"
+              spellCheck={false}
+              onFocus={() => {
+                if (guess.trim()) setSuggestOpen(true);
+              }}
+              onBlur={() => setSuggestOpen(false)}
+              onKeyDown={onGuessKeyDown}
+              onChange={(event) => {
+                setGuess(event.target.value);
+                setPicked(0);
+                setSuggestOpen(true);
+                setNote("");
+              }}
+            />
+            {showSuggestions && (
+              <ul id="character-suggestions" className="guess-autocomplete" role="listbox">
+                {matches.length === 0 ? (
+                  <li>{text.noResults}</li>
+                ) : matches.map((card, index) => (
+                  <li
+                    key={card.reference}
+                    id={`character-suggestion-${index}`}
+                    role="option"
+                    aria-selected={index === picked}
+                    className={index === picked ? "selected" : undefined}
+                    onMouseEnter={() => setPicked(index)}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      pickSuggestion(card);
+                    }}
+                  >
+                    <img src={cardImageUrl(card.reference, lang)} alt="" draggable={false} />
+                    <span>{card.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <button className="altered-button" type="submit" disabled={!artReady}>{text.guess}</button>
           {shownStep < 3 && (
             <button className="altered-button" type="button" onClick={revealMore} disabled={!artReady}>

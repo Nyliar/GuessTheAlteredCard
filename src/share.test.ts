@@ -31,7 +31,7 @@ describe("shareText", () => {
     );
   });
 
-  it("marks a skipped silhouette as missed even when the recorded step is still the first", () => {
+  it("marks a skipped first crop as missed even when the recorded step is still the first", () => {
     assert.equal(
       shareText({ step: 0, solved: true, foil: true, date: "2026-10-14", lang: "en", skippedFirst: true }),
       [

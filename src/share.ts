@@ -28,7 +28,7 @@ export interface ShareResult {
   /** Quiz day, as YYYY-MM-DD. */
   date: string;
   lang: Lang;
-  /** The silhouette was skipped, so that row is always a miss. */
+  /** The first crop was skipped, so that row is always a miss. */
   skippedFirst?: boolean;
 }
 
