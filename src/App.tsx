@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import catalog from "./data/characters.json";
 import { Account } from "./Account";
 import { copy } from "./copy";
-import { applyResult, cardForDay, dayKey, formatRemaining, msUntilNextDay, oneOfEachCharacter, type DailyRecord } from "./daily";
+import { applyResult, cardForDay, dayKey, formatRemaining, illustrationsInPool, msUntilNextDay, type DailyRecord } from "./daily";
 import { cardImageUrl } from "./draw";
 import { isCorrectGuess } from "./guess";
 import { canReveal, emptyHints, hintCount, hintsForNextStep, HINT_KINDS, revealHint, type HintKind, type Hints } from "./hints";
@@ -21,7 +21,7 @@ import { loadDaily, loadHistory, loadSkipFirst, loadStats, recordGame, recordSha
 import type { Character, HintStep, Lang } from "./types";
 
 const cards = cardsInPool(catalog.characters as Character[]);
-const dailyCards = oneOfEachCharacter(cards);
+const dailyCards = illustrationsInPool(cards);
 const LANG_KEY = "wtc-lang";
 
 interface Session {
@@ -242,7 +242,7 @@ export function App() {
   }
 
   function playAnother() {
-    const pool = cards.filter((card) => card.reference !== session.card.reference);
+    const pool = dailyCards.filter((card) => card.reference !== session.card.reference);
     const card = pool[Math.floor(Math.random() * pool.length)] ?? session.card;
     setSession({
       card,

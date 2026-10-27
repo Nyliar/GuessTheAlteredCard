@@ -26,15 +26,13 @@ export function previousDay(day: string): string {
   return dayKey(new Date(year, month - 1, date - 1));
 }
 
-const PRINT_RANK: Record<string, number> = { C: 0, E: 1, R1: 2, R2: 3 };
-
-/** One puzzle per character. Alternate printings share a name, so the common art represents them. */
-export function oneOfEachCharacter<T extends { reference: string }>(cards: readonly T[]): T[] {
+/** Common and rare are both puzzles: the illustration changes. R2 repeats the rare art in another faction. */
+export function illustrationsInPool<T extends { reference: string }>(cards: readonly T[]): T[] {
   const chosen = new Map<string, T>();
   for (const card of cards) {
-    const id = characterId(card.reference);
-    const current = chosen.get(id);
-    if (!current || printRank(card.reference) < printRank(current.reference)) chosen.set(id, card);
+    const key = illustrationKey(card.reference);
+    const current = chosen.get(key);
+    if (!current || preferInFactionRare(card.reference, current.reference)) chosen.set(key, card);
   }
   return [...chosen.values()];
 }
@@ -44,13 +42,18 @@ export function cardForDay(cards: readonly Character[], day: string): Character 
   return cards[hash(day) % cards.length];
 }
 
-function characterId(reference: string): string {
-  return reference.replace(/_(C|E|R1|R2)$/, "");
+function illustrationKey(reference: string): string {
+  const suffix = printingOf(reference);
+  const art = suffix === "R1" || suffix === "R2" ? "R" : suffix;
+  return `${reference.replace(/_(C|E|R1|R2)$/, "")}:${art}`;
 }
 
-function printRank(reference: string): number {
-  const suffix = reference.split("_").pop() ?? "";
-  return PRINT_RANK[suffix] ?? 4;
+function preferInFactionRare(next: string, current: string): boolean {
+  return printingOf(next) === "R1" && printingOf(current) === "R2";
+}
+
+function printingOf(reference: string): string {
+  return reference.split("_").pop() ?? "";
 }
 
 export function applyResult(stats: Stats, points: number, today: string, oncePerDay = true, correct = false): Stats {

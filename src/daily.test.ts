@@ -1,20 +1,24 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { applyResult, cardForDay, dayKey, formatRemaining, oneOfEachCharacter, previousDay } from "./daily";
+import { applyResult, cardForDay, dayKey, formatRemaining, illustrationsInPool, previousDay } from "./daily";
 import type { Character, Stats } from "./types";
 
 const cards = ["a", "b", "c", "d"].map((reference) => ({ reference }) as Character);
 const empty: Stats = { score: 0, solved: 0, streak: 0, lastPlayed: "" };
 
-describe("oneOfEachCharacter", () => {
-  it("keeps one art per character and prefers the common printing", () => {
-    const picked = oneOfEachCharacter([
-      { reference: "ALT_CORE_B_MU_18_R1" },
-      { reference: "ALT_CORE_B_MU_18_C" },
+describe("illustrationsInPool", () => {
+  it("keeps the common and the rare, and lets the in-faction rare stand for both", () => {
+    const picked = illustrationsInPool([
       { reference: "ALT_CORE_B_MU_18_R2" },
+      { reference: "ALT_CORE_B_MU_18_C" },
+      { reference: "ALT_CORE_B_MU_18_R1" },
       { reference: "ALT_CORE_B_BR_03_R1" },
+      { reference: "ALT_DUSTER_A_AX_95_E" },
     ]);
-    assert.deepEqual(picked.map((card) => card.reference), ["ALT_CORE_B_MU_18_C", "ALT_CORE_B_BR_03_R1"]);
+    assert.deepEqual(
+      picked.map((card) => card.reference),
+      ["ALT_CORE_B_MU_18_R1", "ALT_CORE_B_MU_18_C", "ALT_CORE_B_BR_03_R1", "ALT_DUSTER_A_AX_95_E"],
+    );
   });
 });
 
