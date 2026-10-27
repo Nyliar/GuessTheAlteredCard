@@ -1,4 +1,5 @@
 import { copy } from "./copy";
+import { HINT_KINDS, type HintKind } from "./hints";
 import { playedStep } from "./score";
 import type { HintStep, Lang } from "./types";
 
@@ -30,6 +31,8 @@ export interface ShareResult {
   lang: Lang;
   /** The first crop was skipped, so that row is always a miss. */
   skippedFirst?: boolean;
+  /** Hint categories opened during the puzzle. The values stay hidden. */
+  hints?: readonly HintKind[];
 }
 
 /** Spoiler-free result: one row per stage. Later stages stay unmarked. */
@@ -43,7 +46,18 @@ export function shareText(result: ShareResult): string {
     const mark = result.solved && index === step ? "✅" : "❌";
     return `${stage}${COLUMN_GAP}${center(mark, MARK_WIDTH, MARK_WIDTH)}`;
   });
-  return [`${title} - ${quizDate(result.date, result.lang)}${foil}`, ...rows].join("\n");
+  return [`${title} - ${quizDate(result.date, result.lang)}${foil}`, ...rows, hintLine(result.hints, result.lang)].join("\n");
+}
+
+function hintLine(hints: readonly HintKind[] | undefined, lang: Lang): string {
+  const text = copy[lang];
+  const names: Record<HintKind, string> = {
+    type: text.hintType,
+    faction: text.hintFaction,
+    set: text.hintSet,
+  };
+  const used = HINT_KINDS.filter((kind) => hints?.includes(kind)).map((kind) => names[kind]);
+  return `💡 ${used.length > 0 ? used.join(", ") : text.shareNoHints}`;
 }
 
 function quizDate(day: string, lang: Lang): string {

@@ -5,6 +5,7 @@ import { copy } from "./copy";
 import { applyResult, cardForDay, dayKey, formatRemaining, msUntilNextDay, oneOfEachCharacter, type DailyRecord } from "./daily";
 import { cardImageUrl } from "./draw";
 import { isCorrectGuess } from "./guess";
+import { canReveal, emptyHints, hintCount, hintsForNextStep, HINT_KINDS, revealHint, type HintKind, type Hints } from "./hints";
 import { summarize } from "./history";
 import { DAILY_LIMIT } from "./mode";
 import { factionLabel, setLabel, typeLabel } from "./labels";
@@ -28,7 +29,7 @@ interface Session {
   step: HintStep;
   phase: "playing" | "correct" | "miss";
   awarded: number | null;
-  hints: number;
+  hints: Hints;
   skippedFirst: boolean;
 }
 
@@ -88,7 +89,7 @@ export function App() {
     if (!skipFirst || showStats) return;
     setSession((current) => {
       if (current.phase !== "playing" || current.step !== 0) return current;
-      return { ...current, step: 1, skippedFirst: true };
+      return { ...current, step: 1, skippedFirst: true, hints: hintsForNextStep(current.hints) };
     });
   }, [skipFirst, showStats]);
 
@@ -99,14 +100,15 @@ export function App() {
       step: session.step,
       phase: session.phase,
       awarded: session.awarded,
-      hints: session.hints,
+      hints: session.hints.revealed,
+      hintSpent: session.hints.spent,
       skippedFirst: session.skippedFirst,
     };
     saveDaily(record);
   }, [today, session]);
 
   function finish(phase: "correct" | "miss", step: HintStep) {
-    const points = phase === "correct" ? earnedPoints(step, session.hints) : 0;
+    const points = phase === "correct" ? earnedPoints(step, hintCount(session.hints)) : 0;
     const solved = phase === "correct";
     recordGame({
       reference: session.card.reference,
@@ -140,6 +142,7 @@ export function App() {
           ...current,
           step: (step + 1) as HintStep,
           skippedFirst: current.skippedFirst || step > current.step,
+          hints: hintsForNextStep(current.hints),
         }));
         setGuess("");
         setSuggestOpen(false);
@@ -188,6 +191,7 @@ export function App() {
       ...current,
       step: (step + 1) as HintStep,
       skippedFirst: current.skippedFirst || step > current.step,
+      hints: hintsForNextStep(current.hints),
     }));
     setGuess("");
     setNote("");
@@ -200,9 +204,9 @@ export function App() {
     finish("miss", playedStep(session.step, skipFirst || session.skippedFirst));
   }
 
-  function takeHint() {
-    if (session.phase !== "playing" || !artReady || session.hints >= 3) return;
-    setSession((current) => ({ ...current, hints: current.hints + 1 }));
+  function takeHint(kind: HintKind) {
+    if (session.phase !== "playing" || !artReady || !canReveal(session.hints, kind)) return;
+    setSession((current) => ({ ...current, hints: revealHint(current.hints, kind) }));
   }
 
   async function shareResult() {
@@ -214,6 +218,7 @@ export function App() {
       date: today,
       lang,
       skippedFirst: session.skippedFirst,
+      hints: session.hints.revealed,
     });
     let shared = false;
     try {
@@ -244,7 +249,7 @@ export function App() {
       step: skipFirst ? 1 : 0,
       phase: "playing",
       awarded: null,
-      hints: 0,
+      hints: emptyHints(),
       skippedFirst: skipFirst,
     });
     setGuess("");
@@ -260,7 +265,7 @@ export function App() {
   );
   const primary = lang === "fr" ? session.card.name.fr : session.card.name.en;
   const secondary = lang === "fr" ? session.card.name.en : session.card.name.fr;
-  const stake = session.phase === "playing" ? earnedPoints(shownStep, session.hints) : session.awarded;
+  const stake = session.phase === "playing" ? earnedPoints(shownStep, hintCount(session.hints)) : session.awarded;
   const chances = Math.max(0, 4 - shownStep - (session.phase === "playing" ? 0 : 1));
   const details = [session.card.type, session.card.factionName, session.card.setName].filter(Boolean).join(" · ");
   const hintNames = [text.hintType, text.hintFaction, text.hintSet];
@@ -364,18 +369,25 @@ export function App() {
 
       {session.phase === "playing" && (
         <div className="hints">
-          <p>
-            {revealedHints.map((value, index) => (
-              <span key={hintNames[index]}>
-                {index > 0 && " - "}
-                {index < session.hints ? value : `${hintNames[index]} ?`}
-              </span>
-            ))}
-          </p>
-          {session.hints < 3 && (
-            <button className="altered-button hint-button" type="button" onClick={takeHint} disabled={!artReady}>
-              {text.hint}
-            </button>
+          {HINT_KINDS.map((kind, index) => {
+            const open = session.hints.revealed.includes(kind);
+            if (open) return <span key={kind} className="hint-shown">{revealedHints[index]}</span>;
+            const allowed = canReveal(session.hints, kind);
+            return (
+              <button
+                key={kind}
+                className="altered-button hint-choice"
+                type="button"
+                onClick={() => takeHint(kind)}
+                disabled={!artReady || !allowed}
+                title={allowed ? undefined : text.hintLater}
+              >
+                {allowed ? `${hintNames[index]} ${text.hintPrice}` : `${hintNames[index]} ?`}
+              </button>
+            );
+          })}
+          {session.hints.spent && session.hints.revealed.length < HINT_KINDS.length && (
+            <p className="hint-note">{text.hintLater}</p>
           )}
         </div>
       )}
@@ -556,7 +568,14 @@ function readToday(day: string): Session {
   if (saved?.date === day && saved.reference === card.reference) {
     const skippedFirst = saved.skippedFirst || (skip && saved.phase === "playing" && saved.step === 0);
     const step = saved.phase === "playing" ? playedStep(saved.step, skippedFirst) : saved.step;
-    return { card, step, phase: saved.phase, awarded: saved.awarded, hints: saved.hints, skippedFirst };
+    return {
+      card,
+      step,
+      phase: saved.phase,
+      awarded: saved.awarded,
+      hints: { revealed: saved.hints, spent: step === saved.step && saved.hintSpent },
+      skippedFirst,
+    };
   }
-  return { card, step: skip ? 1 : 0, phase: "playing", awarded: null, hints: 0, skippedFirst: skip };
+  return { card, step: skip ? 1 : 0, phase: "playing", awarded: null, hints: emptyHints(), skippedFirst: skip };
 }

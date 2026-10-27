@@ -1,3 +1,4 @@
+import type { HintKind } from "./hints";
 import type { Character, HintStep, Stats } from "./types";
 
 export interface DailyRecord {
@@ -6,7 +7,9 @@ export interface DailyRecord {
   step: HintStep;
   phase: "playing" | "correct" | "miss";
   awarded: number | null;
-  hints: number;
+  hints: HintKind[];
+  /** This step already used its one hint. */
+  hintSpent: boolean;
   /** The first crop was skipped, so a share marks that step as missed. */
   skippedFirst: boolean;
 }

@@ -14,6 +14,7 @@ describe("shareText", () => {
         `░▒▓${gap}✅`,
         " 🎨  ",
         " 🖼️  ",
+        "💡 none",
       ].join("\n"),
     );
   });
@@ -27,6 +28,7 @@ describe("shareText", () => {
         `░▒▓${gap}❌`,
         ` 🎨  ${gap}❌`,
         ` 🖼️  ${gap}✅`,
+        "💡 aucun",
       ].join("\n"),
     );
   });
@@ -40,7 +42,20 @@ describe("shareText", () => {
         `░▒▓${gap}✅`,
         " 🎨  ",
         " 🖼️  ",
+        "💡 none",
       ].join("\n"),
+    );
+  });
+
+  it("lists the opened hints in a fixed order and hides their values", () => {
+    const hints = ["set", "type"] as const;
+    assert.equal(
+      shareText({ step: 2, solved: true, foil: false, date: "2026-10-14", lang: "en", hints }).split("\n").at(-1),
+      "💡 type, set",
+    );
+    assert.equal(
+      shareText({ step: 2, solved: true, foil: false, date: "2026-10-14", lang: "fr", hints }).split("\n").at(-1),
+      "💡 type, extension",
     );
   });
 
@@ -52,6 +67,7 @@ describe("shareText", () => {
         `░▒▓${gap}❌`,
         ` 🎨  ${gap}❌`,
         " 🖼️  ",
+        "💡 none",
       ].join("\n"),
     );
   });

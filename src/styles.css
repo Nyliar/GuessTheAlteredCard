@@ -326,17 +326,24 @@ a { color: #aa8c2c; }
 
 .hints {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-top: 14px;
 }
 
-.hints p {
-  margin: 0;
-  color: #49423a;
+.hint-shown {
   font-weight: 700;
+  color: #49423a;
+}
+
+.hint-note {
+  flex-basis: 100%;
+  margin: 0;
   text-align: center;
+  color: #786f56;
+  font-size: 0.85rem;
 }
 
 .guess {
@@ -423,6 +430,17 @@ a { color: #aa8c2c; }
   border-color: #e5cf87;
   border-top-left-radius: 3px;
   border-bottom-right-radius: 3px;
+}
+
+.altered-button.hint-choice {
+  padding: 8px 12px;
+  font-size: 0.95rem;
+}
+
+.altered-button.hint-choice:disabled:hover {
+  border-color: #e4e5dc;
+  border-top-left-radius: 16px;
+  border-bottom-right-radius: 16px;
 }
 
 .reveal-actions {

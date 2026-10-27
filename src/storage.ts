@@ -1,4 +1,5 @@
 import type { DailyRecord } from "./daily";
+import { normalizeHints } from "./hints";
 import { EMPTY_LOG, normalizeLog, type GameResult, type PlayerLog } from "./history";
 import type { Stats } from "./types";
 
@@ -33,17 +34,19 @@ export function loadDaily(): DailyRecord | null {
   try {
     const raw = localStorage.getItem(DAILY_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<DailyRecord>;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
     if (!parsed || typeof parsed.date !== "string" || typeof parsed.reference !== "string") return null;
     if (parsed.phase !== "playing" && parsed.phase !== "correct" && parsed.phase !== "miss") return null;
     if (parsed.step !== 0 && parsed.step !== 1 && parsed.step !== 2 && parsed.step !== 3) return null;
+    const hints = normalizeHints(parsed.hints, parsed.hintSpent);
     return {
       date: parsed.date,
       reference: parsed.reference,
       step: parsed.step,
       phase: parsed.phase,
       awarded: typeof parsed.awarded === "number" ? parsed.awarded : null,
-      hints: typeof parsed.hints === "number" ? Math.min(3, Math.max(0, parsed.hints)) : 0,
+      hints: hints.revealed,
+      hintSpent: hints.spent,
       skippedFirst: parsed.skippedFirst === true,
     };
   } catch {
